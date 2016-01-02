@@ -233,6 +233,7 @@ public class ImageLoader {
 	 */
 	public void displayImage(String uri, ImageAware imageAware, DisplayImageOptions options,
 			ImageSize targetSize, ImageLoadingListener listener, ImageLoadingProgressListener progressListener) {
+		//检测是否配置
 		checkConfiguration();
 		if (imageAware == null) {
 			throw new IllegalArgumentException(ERROR_WRONG_ARGUMENTS);
@@ -259,6 +260,7 @@ public class ImageLoader {
 		if (targetSize == null) {
 			targetSize = ImageSizeUtils.defineTargetSizeForView(imageAware, configuration.getMaxImageSize());
 		}
+		//https://lh6.googleusercontent.com/-55osAWw3x0Q/URquUtcFr5I/AAAAAAAAAbs/rWlj1RUKrYI/s1024/A%252520Photographer.jpg_144x144
 		String memoryCacheKey = MemoryCacheUtils.generateKey(uri, targetSize);
 		engine.prepareDisplayTaskFor(imageAware, memoryCacheKey);
 

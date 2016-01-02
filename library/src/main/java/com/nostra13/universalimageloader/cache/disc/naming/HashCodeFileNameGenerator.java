@@ -1,12 +1,12 @@
 /*******************************************************************************
  * Copyright 2011-2013 Sergey Tarasevich
- *
+ * <p/>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p/>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p/>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -22,8 +22,9 @@ package com.nostra13.universalimageloader.cache.disc.naming;
  * @since 1.3.1
  */
 public class HashCodeFileNameGenerator implements FileNameGenerator {
-	@Override
-	public String generate(String imageUri) {
-		return String.valueOf(imageUri.hashCode());
-	}
+    @Override
+    public String generate(String imageUri) {
+        //将图片url的hashcode转换成字符串,然后缓存以此hashcode为名称
+        return String.valueOf(imageUri.hashCode());
+    }
 }
