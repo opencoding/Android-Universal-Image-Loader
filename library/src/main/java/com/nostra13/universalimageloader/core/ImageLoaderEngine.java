@@ -1,12 +1,12 @@
 /*******************************************************************************
  * Copyright 2011-2014 Sergey Tarasevich
- *
+ * <p/>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p/>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p/>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -16,6 +16,7 @@
 package com.nostra13.universalimageloader.core;
 
 import android.view.View;
+
 import com.nostra13.universalimageloader.core.assist.FailReason;
 import com.nostra13.universalimageloader.core.assist.FlushedInputStream;
 import com.nostra13.universalimageloader.core.imageaware.ImageAware;
@@ -33,185 +34,215 @@ import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * {@link ImageLoader} engine which responsible for {@linkplain LoadAndDisplayImageTask display task} execution.
+ * <p/>
+ * LoadAndDisplayImageTask和ProcessAndDisplayImageTask任务分发器，负责分发任务到具体线程池
  *
  * @author Sergey Tarasevich (nostra13[at]gmail[dot]com)
  * @since 1.7.1
  */
 class ImageLoaderEngine {
 
-	final ImageLoaderConfiguration configuration;
+    final ImageLoaderConfiguration configuration;
+    /**
+     * 用于执行从源获取图片的任务
+     */
+    private Executor taskExecutor;
+    /**
+     * 用于执行从缓存中获取图片的任务
+     */
+    private Executor taskExecutorForCachedImages;
+    /**
+     * 任务分发线程池
+     */
+    private Executor taskDistributor;
 
-	private Executor taskExecutor;
-	private Executor taskExecutorForCachedImages;
-	private Executor taskDistributor;
+    private final Map<Integer, String> cacheKeysForImageAwares = Collections
+            .synchronizedMap(new HashMap<Integer, String>());
 
-	private final Map<Integer, String> cacheKeysForImageAwares = Collections
-			.synchronizedMap(new HashMap<Integer, String>());
-	private final Map<String, ReentrantLock> uriLocks = new WeakHashMap<String, ReentrantLock>();
+    /**
+     * 图片正在加载的重入锁map
+     */
+    private final Map<String, ReentrantLock> uriLocks = new WeakHashMap<String, ReentrantLock>();
+    /**
+     * 是否被暂停
+     */
+    private final AtomicBoolean paused = new AtomicBoolean(false);
+    /**
+     * 是否不允许访问网络
+     */
+    private final AtomicBoolean networkDenied = new AtomicBoolean(false);
+    /**
+     * 是否是网络缓慢的情况
+     */
+    private final AtomicBoolean slowNetwork = new AtomicBoolean(false);
+    /**
+     * 暂停等待锁
+     */
+    private final Object pauseLock = new Object();
 
-	private final AtomicBoolean paused = new AtomicBoolean(false);
-	private final AtomicBoolean networkDenied = new AtomicBoolean(false);
-	private final AtomicBoolean slowNetwork = new AtomicBoolean(false);
+    ImageLoaderEngine(ImageLoaderConfiguration configuration) {
+        this.configuration = configuration;
 
-	private final Object pauseLock = new Object();
+        taskExecutor = configuration.taskExecutor;
+        taskExecutorForCachedImages = configuration.taskExecutorForCachedImages;
 
-	ImageLoaderEngine(ImageLoaderConfiguration configuration) {
-		this.configuration = configuration;
+        taskDistributor = DefaultConfigurationFactory.createTaskDistributor();
+    }
 
-		taskExecutor = configuration.taskExecutor;
-		taskExecutorForCachedImages = configuration.taskExecutorForCachedImages;
+    /**
+     * Submits task to execution pool
+     */
+    void submit(final LoadAndDisplayImageTask task) {
+        taskDistributor.execute(new Runnable() {
+            @Override
+            public void run() {
+                File image = configuration.diskCache.get(task.getLoadingUri());
+                boolean isImageCachedOnDisk = image != null && image.exists();
+                initExecutorsIfNeed();
+                if (isImageCachedOnDisk) {
+                    taskExecutorForCachedImages.execute(task);
+                } else {
+                    taskExecutor.execute(task);
+                }
+            }
+        });
+    }
 
-		taskDistributor = DefaultConfigurationFactory.createTaskDistributor();
-	}
+    /**
+     * Submits task to execution pool
+     */
+    void submit(ProcessAndDisplayImageTask task) {
+        initExecutorsIfNeed();
+        taskExecutorForCachedImages.execute(task);
+    }
 
-	/** Submits task to execution pool */
-	void submit(final LoadAndDisplayImageTask task) {
-		taskDistributor.execute(new Runnable() {
-			@Override
-			public void run() {
-				File image = configuration.diskCache.get(task.getLoadingUri());
-				boolean isImageCachedOnDisk = image != null && image.exists();
-				initExecutorsIfNeed();
-				if (isImageCachedOnDisk) {
-					taskExecutorForCachedImages.execute(task);
-				} else {
-					taskExecutor.execute(task);
-				}
-			}
-		});
-	}
+    private void initExecutorsIfNeed() {
+        if (!configuration.customExecutor && ((ExecutorService) taskExecutor).isShutdown()) {
+            taskExecutor = createTaskExecutor();
+        }
+        if (!configuration.customExecutorForCachedImages && ((ExecutorService) taskExecutorForCachedImages)
+                .isShutdown()) {
+            taskExecutorForCachedImages = createTaskExecutor();
+        }
+    }
 
-	/** Submits task to execution pool */
-	void submit(ProcessAndDisplayImageTask task) {
-		initExecutorsIfNeed();
-		taskExecutorForCachedImages.execute(task);
-	}
+    private Executor createTaskExecutor() {
+        return DefaultConfigurationFactory
+                .createExecutor(configuration.threadPoolSize, configuration.threadPriority,
+                        configuration.tasksProcessingType);
+    }
 
-	private void initExecutorsIfNeed() {
-		if (!configuration.customExecutor && ((ExecutorService) taskExecutor).isShutdown()) {
-			taskExecutor = createTaskExecutor();
-		}
-		if (!configuration.customExecutorForCachedImages && ((ExecutorService) taskExecutorForCachedImages)
-				.isShutdown()) {
-			taskExecutorForCachedImages = createTaskExecutor();
-		}
-	}
+    /**
+     * Returns URI of image which is loading at this moment into passed {@link com.nostra13.universalimageloader.core.imageaware.ImageAware}
+     */
+    String getLoadingUriForView(ImageAware imageAware) {
+        return cacheKeysForImageAwares.get(imageAware.getId());
+    }
 
-	private Executor createTaskExecutor() {
-		return DefaultConfigurationFactory
-				.createExecutor(configuration.threadPoolSize, configuration.threadPriority,
-				configuration.tasksProcessingType);
-	}
+    /**
+     * Associates <b>memoryCacheKey</b> with <b>imageAware</b>. Then it helps to define image URI is loaded into View at
+     * exact moment.
+     */
+    void prepareDisplayTaskFor(ImageAware imageAware, String memoryCacheKey) {
+        cacheKeysForImageAwares.put(imageAware.getId(), memoryCacheKey);
+    }
 
-	/**
-	 * Returns URI of image which is loading at this moment into passed {@link com.nostra13.universalimageloader.core.imageaware.ImageAware}
-	 */
-	String getLoadingUriForView(ImageAware imageAware) {
-		return cacheKeysForImageAwares.get(imageAware.getId());
-	}
+    /**
+     * Cancels the task of loading and displaying image for incoming <b>imageAware</b>.
+     *
+     * @param imageAware {@link com.nostra13.universalimageloader.core.imageaware.ImageAware} for which display task
+     *                   will be cancelled
+     */
+    void cancelDisplayTaskFor(ImageAware imageAware) {
+        cacheKeysForImageAwares.remove(imageAware.getId());
+    }
 
-	/**
-	 * Associates <b>memoryCacheKey</b> with <b>imageAware</b>. Then it helps to define image URI is loaded into View at
-	 * exact moment.
-	 */
-	void prepareDisplayTaskFor(ImageAware imageAware, String memoryCacheKey) {
-		cacheKeysForImageAwares.put(imageAware.getId(), memoryCacheKey);
-	}
+    /**
+     * Denies or allows engine to download images from the network.<br /> <br /> If downloads are denied and if image
+     * isn't cached then {@link ImageLoadingListener#onLoadingFailed(String, View, FailReason)} callback will be fired
+     * with {@link FailReason.FailType#NETWORK_DENIED}
+     *
+     * @param denyNetworkDownloads pass <b>true</b> - to deny engine to download images from the network; <b>false</b> -
+     *                             to allow engine to download images from network.
+     */
+    void denyNetworkDownloads(boolean denyNetworkDownloads) {
+        networkDenied.set(denyNetworkDownloads);
+    }
 
-	/**
-	 * Cancels the task of loading and displaying image for incoming <b>imageAware</b>.
-	 *
-	 * @param imageAware {@link com.nostra13.universalimageloader.core.imageaware.ImageAware} for which display task
-	 *                   will be cancelled
-	 */
-	void cancelDisplayTaskFor(ImageAware imageAware) {
-		cacheKeysForImageAwares.remove(imageAware.getId());
-	}
+    /**
+     * Sets option whether ImageLoader will use {@link FlushedInputStream} for network downloads to handle <a
+     * href="http://code.google.com/p/android/issues/detail?id=6066">this known problem</a> or not.
+     *
+     * @param handleSlowNetwork pass <b>true</b> - to use {@link FlushedInputStream} for network downloads; <b>false</b>
+     *                          - otherwise.
+     */
+    void handleSlowNetwork(boolean handleSlowNetwork) {
+        slowNetwork.set(handleSlowNetwork);
+    }
 
-	/**
-	 * Denies or allows engine to download images from the network.<br /> <br /> If downloads are denied and if image
-	 * isn't cached then {@link ImageLoadingListener#onLoadingFailed(String, View, FailReason)} callback will be fired
-	 * with {@link FailReason.FailType#NETWORK_DENIED}
-	 *
-	 * @param denyNetworkDownloads pass <b>true</b> - to deny engine to download images from the network; <b>false</b> -
-	 *                             to allow engine to download images from network.
-	 */
-	void denyNetworkDownloads(boolean denyNetworkDownloads) {
-		networkDenied.set(denyNetworkDownloads);
-	}
+    /**
+     * Pauses engine. All new "load&display" tasks won't be executed until ImageLoader is {@link #resume() resumed}.<br
+     * /> Already running tasks are not paused.
+     */
+    void pause() {
+        paused.set(true);
+    }
 
-	/**
-	 * Sets option whether ImageLoader will use {@link FlushedInputStream} for network downloads to handle <a
-	 * href="http://code.google.com/p/android/issues/detail?id=6066">this known problem</a> or not.
-	 *
-	 * @param handleSlowNetwork pass <b>true</b> - to use {@link FlushedInputStream} for network downloads; <b>false</b>
-	 *                          - otherwise.
-	 */
-	void handleSlowNetwork(boolean handleSlowNetwork) {
-		slowNetwork.set(handleSlowNetwork);
-	}
+    /**
+     * Resumes engine work. Paused "load&display" tasks will continue its work.
+     */
+    void resume() {
+        paused.set(false);
+        synchronized (pauseLock) {
+            pauseLock.notifyAll();
+        }
+    }
 
-	/**
-	 * Pauses engine. All new "load&display" tasks won't be executed until ImageLoader is {@link #resume() resumed}.<br
-	 * /> Already running tasks are not paused.
-	 */
-	void pause() {
-		paused.set(true);
-	}
+    /**
+     * Stops engine, cancels all running and scheduled display image tasks. Clears internal data.
+     * <br />
+     * <b>NOTE:</b> This method doesn't shutdown
+     * {@linkplain com.nostra13.universalimageloader.core.ImageLoaderConfiguration.Builder#taskExecutor(java.util.concurrent.Executor)
+     * custom task executors} if you set them.
+     */
+    void stop() {
+        if (!configuration.customExecutor) {
+            ((ExecutorService) taskExecutor).shutdownNow();
+        }
+        if (!configuration.customExecutorForCachedImages) {
+            ((ExecutorService) taskExecutorForCachedImages).shutdownNow();
+        }
 
-	/** Resumes engine work. Paused "load&display" tasks will continue its work. */
-	void resume() {
-		paused.set(false);
-		synchronized (pauseLock) {
-			pauseLock.notifyAll();
-		}
-	}
+        cacheKeysForImageAwares.clear();
+        uriLocks.clear();
+    }
 
-	/**
-	 * Stops engine, cancels all running and scheduled display image tasks. Clears internal data.
-	 * <br />
-	 * <b>NOTE:</b> This method doesn't shutdown
-	 * {@linkplain com.nostra13.universalimageloader.core.ImageLoaderConfiguration.Builder#taskExecutor(java.util.concurrent.Executor)
-	 * custom task executors} if you set them.
-	 */
-	void stop() {
-		if (!configuration.customExecutor) {
-			((ExecutorService) taskExecutor).shutdownNow();
-		}
-		if (!configuration.customExecutorForCachedImages) {
-			((ExecutorService) taskExecutorForCachedImages).shutdownNow();
-		}
+    void fireCallback(Runnable r) {
+        taskDistributor.execute(r);
+    }
 
-		cacheKeysForImageAwares.clear();
-		uriLocks.clear();
-	}
+    ReentrantLock getLockForUri(String uri) {
+        ReentrantLock lock = uriLocks.get(uri);
+        if (lock == null) {
+            lock = new ReentrantLock();
+            uriLocks.put(uri, lock);
+        }
+        return lock;
+    }
 
-	void fireCallback(Runnable r) {
-		taskDistributor.execute(r);
-	}
+    AtomicBoolean getPause() {
+        return paused;
+    }
 
-	ReentrantLock getLockForUri(String uri) {
-		ReentrantLock lock = uriLocks.get(uri);
-		if (lock == null) {
-			lock = new ReentrantLock();
-			uriLocks.put(uri, lock);
-		}
-		return lock;
-	}
+    Object getPauseLock() {
+        return pauseLock;
+    }
 
-	AtomicBoolean getPause() {
-		return paused;
-	}
+    boolean isNetworkDenied() {
+        return networkDenied.get();
+    }
 
-	Object getPauseLock() {
-		return pauseLock;
-	}
-
-	boolean isNetworkDenied() {
-		return networkDenied.get();
-	}
-
-	boolean isSlowNetwork() {
-		return slowNetwork.get();
-	}
+    boolean isSlowNetwork() {
+        return slowNetwork.get();
+    }
 }

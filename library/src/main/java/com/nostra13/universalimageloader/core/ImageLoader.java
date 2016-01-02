@@ -266,7 +266,10 @@ public class ImageLoader {
 
 		listener.onLoadingStarted(uri, imageAware.getWrappedView());
 
+		//从缓存中读取照片
 		Bitmap bmp = configuration.memoryCache.get(memoryCacheKey);
+
+		//图片不为空且没有被回收
 		if (bmp != null && !bmp.isRecycled()) {
 			L.d(LOG_LOAD_IMAGE_FROM_MEMORY_CACHE, memoryCacheKey);
 

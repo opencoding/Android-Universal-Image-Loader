@@ -38,15 +38,21 @@ import java.io.OutputStream;
  */
 public abstract class BaseDiskCache implements DiskCache {
     // 32 Kb 默认的缓存大小为32k
-    /** {@value */
+    /**
+     * {@value
+     */
     public static final int DEFAULT_BUFFER_SIZE = 32 * 1024;
 
     //默认压缩后的图片格式为PNG
-    /** {@value */
+    /**
+     * {@value
+     */
     public static final Bitmap.CompressFormat DEFAULT_COMPRESS_FORMAT = Bitmap.CompressFormat.PNG;
 
     //图片显示的质量为100,不进行压缩
-    /** {@value */
+    /**
+     * {@value
+     */
     public static final int DEFAULT_COMPRESS_QUALITY = 100;
 
     private static final String ERROR_ARG_NULL = " argument must be not null";
@@ -69,7 +75,9 @@ public abstract class BaseDiskCache implements DiskCache {
     protected Bitmap.CompressFormat compressFormat = DEFAULT_COMPRESS_FORMAT;
     protected int compressQuality = DEFAULT_COMPRESS_QUALITY;
 
-    /** @param cacheDir Directory for file caching */
+    /**
+     * @param cacheDir Directory for file caching
+     */
     public BaseDiskCache(File cacheDir) {
         this(cacheDir, null);
     }
@@ -136,14 +144,21 @@ public abstract class BaseDiskCache implements DiskCache {
 
     @Override
     public boolean save(String imageUri, Bitmap bitmap) throws IOException {
+        //获取imageUri的File对象，该对象封装了缓存路径和图片保存后的名称
         File imageFile = getFile(imageUri);
+
+        //获取临时保存文件的tmpFile对象
         File tmpFile = new File(imageFile.getAbsolutePath() + TEMP_IMAGE_POSTFIX);
         OutputStream os = new BufferedOutputStream(new FileOutputStream(tmpFile), bufferSize);
         boolean savedSuccessfully = false;
         try {
+            //调用compress把bitMap压缩到tempFile中
             savedSuccessfully = bitmap.compress(compressFormat, compressQuality, os);
+
         } finally {
             IoUtils.closeSilently(os);
+
+            //如果保存成功并且tempFile的文件没有成功移动到imageFile的话，就删除temFile
             if (savedSuccessfully && !tmpFile.renameTo(imageFile)) {
                 savedSuccessfully = false;
             }
@@ -175,7 +190,9 @@ public abstract class BaseDiskCache implements DiskCache {
         }
     }
 
-    /** Returns file object (not null) for incoming image URI. File object can reference to non-existing file. */
+    /**
+     * Returns file object (not null) for incoming image URI. File object can reference to non-existing file.
+     */
     protected File getFile(String imageUri) {
         String fileName = fileNameGenerator.generate(imageUri);
         File dir = cacheDir;
