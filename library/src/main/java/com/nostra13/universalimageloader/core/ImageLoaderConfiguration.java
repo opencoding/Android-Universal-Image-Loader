@@ -592,6 +592,9 @@ public final class ImageLoaderConfiguration {
             return new ImageLoaderConfiguration(this);
         }
 
+        /**
+         * 初始化和默认的值
+         */
         private void initEmptyFieldsWithDefaultValues() {
             if (taskExecutor == null) {
                 taskExecutor = DefaultConfigurationFactory

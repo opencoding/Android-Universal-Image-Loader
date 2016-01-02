@@ -56,8 +56,10 @@ class ImageLoaderEngine {
      */
     private Executor taskDistributor;
 
-    private final Map<Integer, String> cacheKeysForImageAwares = Collections
-            .synchronizedMap(new HashMap<Integer, String>());
+    /**
+     * 建议换成：ConcurrentHashMap
+     */
+    private final Map<Integer, String> cacheKeysForImageAwares = Collections.synchronizedMap(new HashMap<Integer, String>());
 
     /**
      * 图片正在加载的重入锁map

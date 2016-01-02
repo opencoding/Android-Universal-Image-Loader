@@ -120,6 +120,7 @@ public class DefaultConfigurationFactory {
 			}
 			memoryCacheSize = 1024 * 1024 * memoryClass / 8;
 		}
+		//设置默认缓存
 		return new LruMemoryCache(memoryCacheSize);
 	}
 

@@ -148,8 +148,7 @@ final class DiskLruCache implements Closeable {
 	private long size = 0;
 	private int fileCount = 0;
 	private Writer journalWriter;
-	private final LinkedHashMap<String, Entry> lruEntries =
-			new LinkedHashMap<String, Entry>(0, 0.75f, true);
+	private final LinkedHashMap<String, Entry> lruEntries = new LinkedHashMap<String, Entry>(0, 0.75f, true);
 	private int redundantOpCount;
 
 	/**
@@ -160,8 +159,7 @@ final class DiskLruCache implements Closeable {
 	private long nextSequenceNumber = 0;
 
 	/** This cache uses a single background thread to evict entries. */
-	final ThreadPoolExecutor executorService =
-			new ThreadPoolExecutor(0, 1, 60L, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>());
+	final ThreadPoolExecutor executorService = new ThreadPoolExecutor(0, 1, 60L, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>());
 	private final Callable<Void> cleanupCallable = new Callable<Void>() {
 		public Void call() throws Exception {
 			synchronized (DiskLruCache.this) {
