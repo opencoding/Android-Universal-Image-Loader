@@ -597,33 +597,45 @@ public final class ImageLoaderConfiguration {
          */
         private void initEmptyFieldsWithDefaultValues() {
             if (taskExecutor == null) {
-                taskExecutor = DefaultConfigurationFactory
-                        .createExecutor(threadPoolSize, threadPriority, tasksProcessingType);
+                taskExecutor = DefaultConfigurationFactory.createExecutor(threadPoolSize, threadPriority, tasksProcessingType);
+
             } else {
                 customExecutor = true;
             }
             if (taskExecutorForCachedImages == null) {
-                taskExecutorForCachedImages = DefaultConfigurationFactory
-                        .createExecutor(threadPoolSize, threadPriority, tasksProcessingType);
+                taskExecutorForCachedImages = DefaultConfigurationFactory.createExecutor(threadPoolSize, threadPriority, tasksProcessingType);
+
             } else {
                 customExecutorForCachedImages = true;
             }
+
+            //创建磁盘缓存
             if (diskCache == null) {
                 if (diskCacheFileNameGenerator == null) {
                     diskCacheFileNameGenerator = DefaultConfigurationFactory.createFileNameGenerator();
                 }
-                diskCache = DefaultConfigurationFactory
-                        .createDiskCache(context, diskCacheFileNameGenerator, diskCacheSize, diskCacheFileCount);
+
+                diskCache = DefaultConfigurationFactory.createDiskCache(context, diskCacheFileNameGenerator, diskCacheSize, diskCacheFileCount);
             }
+
+            //创建内存缓存:LruMemoryCache
             if (memoryCache == null) {
+                //使用简单工厂模式
                 memoryCache = DefaultConfigurationFactory.createMemoryCache(context, memoryCacheSize);
             }
+
+            //在put()时，若放入的key即图片的uri，已存在于缓存中，那么先删除缓存中的记录，再进行put新的,封装缓存类
             if (denyCacheImageMultipleSizesInMemory) {
+                //使用装饰者模式
                 memoryCache = new FuzzyKeyMemoryCache(memoryCache, MemoryCacheUtils.createFuzzyKeyComparator());
             }
+
+            //创建图片下载
             if (downloader == null) {
                 downloader = DefaultConfigurationFactory.createImageDownloader(context);
             }
+
+
             if (decoder == null) {
                 decoder = DefaultConfigurationFactory.createImageDecoder(writeLogs);
             }

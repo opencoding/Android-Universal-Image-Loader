@@ -1,12 +1,12 @@
 /*******************************************************************************
  * Copyright 2011-2014 Sergey Tarasevich
- *
+ * <p/>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p/>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p/>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -20,6 +20,7 @@ import android.app.ActivityManager;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.os.Build;
+
 import com.nostra13.universalimageloader.cache.disc.DiskCache;
 import com.nostra13.universalimageloader.cache.disc.impl.UnlimitedDiskCache;
 import com.nostra13.universalimageloader.cache.disc.impl.ext.LruDiskCache;
@@ -57,128 +58,156 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class DefaultConfigurationFactory {
 
-	/** Creates default implementation of task executor */
-	public static Executor createExecutor(int threadPoolSize, int threadPriority,
-			QueueProcessingType tasksProcessingType) {
-		boolean lifo = tasksProcessingType == QueueProcessingType.LIFO;
-		BlockingQueue<Runnable> taskQueue =
-				lifo ? new LIFOLinkedBlockingDeque<Runnable>() : new LinkedBlockingQueue<Runnable>();
-		return new ThreadPoolExecutor(threadPoolSize, threadPoolSize, 0L, TimeUnit.MILLISECONDS, taskQueue,
-				createThreadFactory(threadPriority, "uil-pool-"));
-	}
+    /**
+     * Creates default implementation of task executor
+     */
+    public static Executor createExecutor(int threadPoolSize, int threadPriority,
+                                          QueueProcessingType tasksProcessingType) {
+        boolean lifo = tasksProcessingType == QueueProcessingType.LIFO;
+        BlockingQueue<Runnable> taskQueue =
+                lifo ? new LIFOLinkedBlockingDeque<Runnable>() : new LinkedBlockingQueue<Runnable>();
+        return new ThreadPoolExecutor(threadPoolSize, threadPoolSize, 0L, TimeUnit.MILLISECONDS, taskQueue,
+                createThreadFactory(threadPriority, "uil-pool-"));
+    }
 
-	/** Creates default implementation of task distributor */
-	public static Executor createTaskDistributor() {
-		return Executors.newCachedThreadPool(createThreadFactory(Thread.NORM_PRIORITY, "uil-pool-d-"));
-	}
+    /**
+     * Creates default implementation of task distributor
+     */
+    public static Executor createTaskDistributor() {
+        return Executors.newCachedThreadPool(createThreadFactory(Thread.NORM_PRIORITY, "uil-pool-d-"));
+    }
 
-	/** Creates {@linkplain HashCodeFileNameGenerator default implementation} of FileNameGenerator */
-	public static FileNameGenerator createFileNameGenerator() {
-		return new HashCodeFileNameGenerator();
-	}
+    /**
+     * Creates {@linkplain HashCodeFileNameGenerator default implementation} of FileNameGenerator
+     */
+    public static FileNameGenerator createFileNameGenerator() {
+        return new HashCodeFileNameGenerator();
+    }
 
-	/**
-	 * Creates default implementation of {@link DiskCache} depends on incoming parameters
-	 */
-	public static DiskCache createDiskCache(Context context, FileNameGenerator diskCacheFileNameGenerator,
-			long diskCacheSize, int diskCacheFileCount) {
-		File reserveCacheDir = createReserveDiskCacheDir(context);
-		if (diskCacheSize > 0 || diskCacheFileCount > 0) {
-			File individualCacheDir = StorageUtils.getIndividualCacheDirectory(context);
-			try {
-				return new LruDiskCache(individualCacheDir, reserveCacheDir, diskCacheFileNameGenerator, diskCacheSize,
-						diskCacheFileCount);
-			} catch (IOException e) {
-				L.e(e);
-				// continue and create unlimited cache
-			}
-		}
-		File cacheDir = StorageUtils.getCacheDirectory(context);
-		return new UnlimitedDiskCache(cacheDir, reserveCacheDir, diskCacheFileNameGenerator);
-	}
+    /**
+     * Creates default implementation of {@link DiskCache} depends on incoming parameters
+     */
+    public static DiskCache createDiskCache(Context context, FileNameGenerator diskCacheFileNameGenerator,
+                                            long diskCacheSize, int diskCacheFileCount) {
+        //    /data/data/com.nostra13.universalimageloader/cache/uil-images
+        File reserveCacheDir = createReserveDiskCacheDir(context);
 
-	/** Creates reserve disk cache folder which will be used if primary disk cache folder becomes unavailable */
-	private static File createReserveDiskCacheDir(Context context) {
-		File cacheDir = StorageUtils.getCacheDirectory(context, false);
-		File individualDir = new File(cacheDir, "uil-images");
-		if (individualDir.exists() || individualDir.mkdir()) {
-			cacheDir = individualDir;
-		}
-		return cacheDir;
-	}
+        if (diskCacheSize > 0 || diskCacheFileCount > 0) {
 
-	/**
-	 * Creates default implementation of {@link MemoryCache} - {@link LruMemoryCache}<br />
-	 * Default cache size = 1/8 of available app memory.
-	 */
-	public static MemoryCache createMemoryCache(Context context, int memoryCacheSize) {
-		if (memoryCacheSize == 0) {
-			ActivityManager am = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
-			int memoryClass = am.getMemoryClass();
-			if (hasHoneycomb() && isLargeHeap(context)) {
-				memoryClass = getLargeMemoryClass(am);
-			}
-			memoryCacheSize = 1024 * 1024 * memoryClass / 8;
-		}
-		//设置默认缓存
-		return new LruMemoryCache(memoryCacheSize);
-	}
+            //    /storage/emulated/0/Android/data/com.nostra13.universalimageloader/cache/uil-images
+            File individualCacheDir = StorageUtils.getIndividualCacheDirectory(context);
 
-	private static boolean hasHoneycomb() {
-		return Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB;
-	}
+            try {
+                return new LruDiskCache(individualCacheDir, reserveCacheDir, diskCacheFileNameGenerator, diskCacheSize, diskCacheFileCount);
+            } catch (IOException e) {
+                L.e(e);
+                // continue and create unlimited cache
+            }
+        }
+//   /storage/emulated/0/Android/data/com.nostra13.universalimageloader/cache
+        File cacheDir = StorageUtils.getCacheDirectory(context);
+        return new UnlimitedDiskCache(cacheDir, reserveCacheDir, diskCacheFileNameGenerator);
+    }
 
-	@TargetApi(Build.VERSION_CODES.HONEYCOMB)
-	private static boolean isLargeHeap(Context context) {
-		return (context.getApplicationInfo().flags & ApplicationInfo.FLAG_LARGE_HEAP) != 0;
-	}
+    /**
+     * Creates reserve disk cache folder which will be used if primary disk cache folder becomes unavailable
+     */
+    private static File createReserveDiskCacheDir(Context context) {
+        File cacheDir = StorageUtils.getCacheDirectory(context, false);
+        File individualDir = new File(cacheDir, "uil-images");
+        if (individualDir.exists() || individualDir.mkdir()) {
+            cacheDir = individualDir;
+        }
+        return cacheDir;
+    }
 
-	@TargetApi(Build.VERSION_CODES.HONEYCOMB)
-	private static int getLargeMemoryClass(ActivityManager am) {
-		return am.getLargeMemoryClass();
-	}
+    /**
+     * 创建默认的内存缓存
+     * Creates default implementation of {@link MemoryCache} - {@link LruMemoryCache}<br />
+     * Default cache size = 1/8 of available app memory.
+     */
+    public static MemoryCache createMemoryCache(Context context, int memoryCacheSize) {
+        if (memoryCacheSize == 0) {
+            ActivityManager am = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
+            //获取每个进程可用的最大内存,以M为单位 96M
+            int memoryClass = am.getMemoryClass();
 
-	/** Creates default implementation of {@link ImageDownloader} - {@link BaseImageDownloader} */
-	public static ImageDownloader createImageDownloader(Context context) {
-		return new BaseImageDownloader(context);
-	}
 
-	/** Creates default implementation of {@link ImageDecoder} - {@link BaseImageDecoder} */
-	public static ImageDecoder createImageDecoder(boolean loggingEnabled) {
-		return new BaseImageDecoder(loggingEnabled);
-	}
+            if (hasHoneycomb() && isLargeHeap(context)) {
+                //在xml中设置了 android:largeHeap="true"
+                //获取最大的堆内存 256
+                memoryClass = getLargeMemoryClass(am);
+            }
+            //1/8内存缓存
+            memoryCacheSize = 1024 * 1024 * memoryClass / 8;
+        }
+        //设置默认缓存：强引用
+        return new LruMemoryCache(memoryCacheSize);
+    }
 
-	/** Creates default implementation of {@link BitmapDisplayer} - {@link SimpleBitmapDisplayer} */
-	public static BitmapDisplayer createBitmapDisplayer() {
-		return new SimpleBitmapDisplayer();
-	}
+    private static boolean hasHoneycomb() {
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB;
+    }
 
-	/** Creates default implementation of {@linkplain ThreadFactory thread factory} for task executor */
-	private static ThreadFactory createThreadFactory(int threadPriority, String threadNamePrefix) {
-		return new DefaultThreadFactory(threadPriority, threadNamePrefix);
-	}
+    @TargetApi(Build.VERSION_CODES.HONEYCOMB)
+    private static boolean isLargeHeap(Context context) {
+        return (context.getApplicationInfo().flags & ApplicationInfo.FLAG_LARGE_HEAP) != 0;
+    }
 
-	private static class DefaultThreadFactory implements ThreadFactory {
+    @TargetApi(Build.VERSION_CODES.HONEYCOMB)
+    private static int getLargeMemoryClass(ActivityManager am) {
+        return am.getLargeMemoryClass();
+    }
 
-		private static final AtomicInteger poolNumber = new AtomicInteger(1);
+    /**
+     * Creates default implementation of {@link ImageDownloader} - {@link BaseImageDownloader}
+     */
+    public static ImageDownloader createImageDownloader(Context context) {
+        return new BaseImageDownloader(context);
+    }
 
-		private final ThreadGroup group;
-		private final AtomicInteger threadNumber = new AtomicInteger(1);
-		private final String namePrefix;
-		private final int threadPriority;
+    /**
+     * Creates default implementation of {@link ImageDecoder} - {@link BaseImageDecoder}
+     */
+    public static ImageDecoder createImageDecoder(boolean loggingEnabled) {
+        return new BaseImageDecoder(loggingEnabled);
+    }
 
-		DefaultThreadFactory(int threadPriority, String threadNamePrefix) {
-			this.threadPriority = threadPriority;
-			group = Thread.currentThread().getThreadGroup();
-			namePrefix = threadNamePrefix + poolNumber.getAndIncrement() + "-thread-";
-		}
+    /**
+     * Creates default implementation of {@link BitmapDisplayer} - {@link SimpleBitmapDisplayer}
+     */
+    public static BitmapDisplayer createBitmapDisplayer() {
+        return new SimpleBitmapDisplayer();
+    }
 
-		@Override
-		public Thread newThread(Runnable r) {
-			Thread t = new Thread(group, r, namePrefix + threadNumber.getAndIncrement(), 0);
-			if (t.isDaemon()) t.setDaemon(false);
-			t.setPriority(threadPriority);
-			return t;
-		}
-	}
+    /**
+     * Creates default implementation of {@linkplain ThreadFactory thread factory} for task executor
+     */
+    private static ThreadFactory createThreadFactory(int threadPriority, String threadNamePrefix) {
+        return new DefaultThreadFactory(threadPriority, threadNamePrefix);
+    }
+
+    private static class DefaultThreadFactory implements ThreadFactory {
+
+        private static final AtomicInteger poolNumber = new AtomicInteger(1);
+
+        private final ThreadGroup group;
+        private final AtomicInteger threadNumber = new AtomicInteger(1);
+        private final String namePrefix;
+        private final int threadPriority;
+
+        DefaultThreadFactory(int threadPriority, String threadNamePrefix) {
+            this.threadPriority = threadPriority;
+            group = Thread.currentThread().getThreadGroup();
+            namePrefix = threadNamePrefix + poolNumber.getAndIncrement() + "-thread-";
+        }
+
+        @Override
+        public Thread newThread(Runnable r) {
+            Thread t = new Thread(group, r, namePrefix + threadNumber.getAndIncrement(), 0);
+            if (t.isDaemon()) t.setDaemon(false);
+            t.setPriority(threadPriority);
+            return t;
+        }
+    }
 }

@@ -66,7 +66,9 @@ public class ImageLoader {
 
     private volatile static ImageLoader instance;
 
-    /** Returns singleton class instance */
+    /**
+     * Returns singleton class instance
+     */
     public static ImageLoader getInstance() {
         if (instance == null) {
             synchronized (ImageLoader.class) {
@@ -292,6 +294,8 @@ public class ImageLoader {
                 listener.onLoadingComplete(uri, imageAware.getWrappedView(), bmp);
             }
         } else {
+
+            //是否显示加载时图片
             if (options.shouldShowImageOnLoading()) {
                 imageAware.setImageDrawable(options.getImageOnLoading(configuration.resources));
             } else if (options.isResetViewBeforeLoading()) {
@@ -300,8 +304,10 @@ public class ImageLoader {
 
             ImageLoadingInfo imageLoadingInfo = new ImageLoadingInfo(uri, imageAware, targetSize, memoryCacheKey,
                     options, listener, progressListener, engine.getLockForUri(uri));
-            LoadAndDisplayImageTask displayTask = new LoadAndDisplayImageTask(engine, imageLoadingInfo,
-                    defineHandler(options));
+
+            LoadAndDisplayImageTask displayTask = new LoadAndDisplayImageTask(engine, imageLoadingInfo, defineHandler(options));
+
+            //是否是异步加载
             if (options.isSyncLoading()) {
                 displayTask.run();
             } else {
@@ -623,7 +629,9 @@ public class ImageLoader {
         }
     }
 
-    /** Sets a default loading listener for all display and loading tasks. */
+    /**
+     * Sets a default loading listener for all display and loading tasks.
+     */
     public void setDefaultLoadingListener(ImageLoadingListener listener) {
         defaultListener = listener == null ? new SimpleImageLoadingListener() : listener;
     }
@@ -761,7 +769,9 @@ public class ImageLoader {
         engine.pause();
     }
 
-    /** Resumes waiting "load&display" tasks */
+    /**
+     * Resumes waiting "load&display" tasks
+     */
     public void resume() {
         engine.resume();
     }

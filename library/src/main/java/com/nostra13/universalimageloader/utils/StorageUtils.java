@@ -73,12 +73,18 @@ public final class StorageUtils {
 		} catch (IncompatibleClassChangeError e) { // (sh)it happens too (Issue #989)
 			externalStorageState = "";
 		}
+
+		//存在sdcrad路径---->/<sdcrad路径>/Android/data/<application package>/cache
 		if (preferExternal && MEDIA_MOUNTED.equals(externalStorageState) && hasExternalStoragePermission(context)) {
 			appCacheDir = getExternalCacheDir(context);
 		}
+
+		// ---->/data/data/<application package>/cache目录
 		if (appCacheDir == null) {
 			appCacheDir = context.getCacheDir();
 		}
+
+		// ---->/data/data/<application package>/cache目录
 		if (appCacheDir == null) {
 			String cacheDirPath = "/data/data/" + context.getPackageName() + "/cache/";
 			L.w("Can't define system cache directory! '%s' will be used.", cacheDirPath);
