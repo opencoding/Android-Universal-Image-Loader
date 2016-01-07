@@ -32,6 +32,7 @@ import com.nostra13.universalimageloader.core.assist.ViewScaleType;
 import com.nostra13.universalimageloader.core.imageaware.ImageAware;
 import com.nostra13.universalimageloader.core.imageaware.ImageViewAware;
 import com.nostra13.universalimageloader.core.imageaware.NonViewAware;
+import com.nostra13.universalimageloader.core.imageaware.StrongImageViewAware;
 import com.nostra13.universalimageloader.core.listener.ImageLoadingListener;
 import com.nostra13.universalimageloader.core.listener.ImageLoadingProgressListener;
 import com.nostra13.universalimageloader.core.listener.SimpleImageLoadingListener;
@@ -398,6 +399,20 @@ public class ImageLoader {
     public void displayImage(String uri, ImageView imageView, DisplayImageOptions options,
                              ImageLoadingListener listener) {
         displayImage(uri, imageView, options, listener, null);
+    }
+
+    /**
+     * 预加载,强引用慎用
+     *
+     * @param uri
+     * @param imageView
+     * @param options
+     * @param listener
+     */
+    public void displayPreloadImage(String uri, ImageView imageView, DisplayImageOptions options,
+                                    ImageLoadingListener listener) {
+//        displayImage(uri, imageView, options, listener, null);
+        displayImage(uri, new StrongImageViewAware(imageView), options, listener, null);
     }
 
     /**

@@ -42,4 +42,15 @@ android.libraryVariants.all { variant ->
     artifacts.add('archives', task);
 }
 
+task makeJar(type: Copy) {
+    delete 'build/libs/Universal-Image-Loader1.9.5.jar'
+    from('build/intermediates/bundles/release/')
+    into('build/libs/')
+    include('classes.jar')
+    rename ('classes.jar', 'Universal-Image-Loader1.9.5.jar')
+}
+makeJar.dependsOn(build)
+//在终端执行生成JAR包
+// gradlew makeJar
+
 apply from: '../gradle/maven_push.gradle'
